@@ -87,7 +87,7 @@ public class AppComponent implements SomeInterface {
     protected void activate() {
         cfgService.registerProperties(getClass());
         log.info("Started");
-        appId = coreService.getAppId("org.learningswitch");
+        appId = coreService.getAppId("org.decps.app");
         log.info("(application id, name)  " + appId.id()+", " + appId.name());
 
         processor = new SwitchPacketProcessor();
