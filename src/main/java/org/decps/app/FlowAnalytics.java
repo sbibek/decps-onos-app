@@ -7,6 +7,7 @@ import org.onosproject.net.PortNumber;
 
 import javax.validation.constraints.Null;
 import java.util.Map;
+import java.util.Date;
 
 public class FlowAnalytics {
     private Map<Integer, PacketFlowRate>  flowRateMap = Maps.newConcurrentMap();
@@ -18,9 +19,13 @@ public class FlowAnalytics {
         if(pfr == null) {
             pfr = new PacketFlowRate();
             pfr.id = id.intValue();
+            pfr.average = 0;
             pfr.packetCount = 1;
         } else {
             pfr.packetCount++;
+            long elapsedTime = System.currentTimeMillis() - pfr.startTime;
+//            System.out.println("epapsed time "+elapsedTime);
+            pfr.average = pfr.packetCount*1000.0f/elapsedTime;
         }
         flowRateMap.putIfAbsent(id, pfr);
          return pfr;
@@ -28,11 +33,12 @@ public class FlowAnalytics {
 
     public static class PacketFlowRate {
         public int id;
+        public long startTime = System.currentTimeMillis();
         public int packetCount;
-        public int average;
+        public float average;
 
         public void log() {
-            System.out.println("[#"+id+"] "+packetCount);
+            System.out.println("[#"+id+"] total count:"+packetCount+", avg p/sec:"+average);
         }
     }
 }
