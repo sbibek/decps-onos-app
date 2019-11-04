@@ -17,8 +17,11 @@ package org.decps.app;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import org.glassfish.jersey.internal.jsr166.Flow;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.IPv4;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.TCP;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
@@ -27,10 +30,7 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.FlowRuleService;
-import org.onosproject.net.packet.PacketContext;
-import org.onosproject.net.packet.PacketPriority;
-import org.onosproject.net.packet.PacketProcessor;
-import org.onosproject.net.packet.PacketService;
+import org.onosproject.net.packet.*;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -62,6 +62,8 @@ public class AppComponent implements SomeInterface {
     private final int mode = 1; // 0 => hub, 1 => switch
 
     private final Logger log = LoggerFactory.getLogger(getClass());
+
+    private FlowAnalytics analytics = new FlowAnalytics();
 
     /** Some configurable property. */
     private String someProperty;
@@ -123,13 +125,23 @@ public class AppComponent implements SomeInterface {
 
         @java.lang.Override
         public void process(PacketContext context) {
+            InboundPacket iPacket = context.inPacket();
+            Ethernet ethPacket = iPacket.parsed();
+            if(ethPacket.getEtherType() == Ethernet.TYPE_IPV4)  {
+                IPv4 ipPacket = (IPv4) ethPacket.getPayload();
+                // now current point of interest is just TCP packets
+                if(ipPacket.getProtocol() == IPv4.PROTOCOL_TCP) {
+                    TCP tcpPacket = (TCP)ipPacket.getPayload();
+                   FlowAnalytics.PacketFlowRate fr = analytics.flow(ipPacket.getSourceAddress(), ipPacket.getDestinationAddress(), tcpPacket.getSourcePort(), tcpPacket.getDestinationPort());
+                    System.out.println("("+IPv4.fromIPv4Address(ipPacket.getSourceAddress()) +","+tcpPacket.getSourcePort()+ ") -> (" + IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+","+tcpPacket.getDestinationPort()+")"+" id::"+(ipPacket.getSourceAddress()+ipPacket.getDestinationAddress()+tcpPacket.getSourcePort()+tcpPacket.getDestinationPort()) );
+                    fr.log();
+                }
+            }
+
+
 //            log.info("(received from) "+context.inPacket().receivedFrom().toString());
             initMacTable(context.inPacket().receivedFrom());
-//            actLikeHub(context);
-            if(mode == 1)
             actLikeSwitch(context);
-            else if(mode == 0)
-                actLikeHub(context);
         }
 
         public void actLikeHub(PacketContext context){
@@ -148,11 +160,11 @@ public class AppComponent implements SomeInterface {
             PortNumber outPort = macTable.get(dstMac);
 
             if(outPort != null) {
-                log.info("("+dstMac+") is a on port "+ outPort + "[ stats: device count #"+mactables.size()+"]");
+//                log.info("("+dstMac+") is a on port "+ outPort + "[ stats: device count #"+mactables.size()+"]");
                 context.treatmentBuilder().setOutput(outPort);
                 context.send();
             } else {
-                log.info("("+dstMac+") is not yet mapped, so flooding"+ "[ stats: device count #"+mactables.size()+"]");
+//                log.info("("+dstMac+") is not yet mapped, so flooding"+ "[ stats: device count #"+mactables.size()+"]");
                 // means just flood as we dont have mapping yet
                 actLikeHub(context);
             }
