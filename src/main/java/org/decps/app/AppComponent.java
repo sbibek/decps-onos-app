@@ -64,7 +64,8 @@ public class AppComponent implements SomeInterface {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     private FlowAnalytics analytics = new FlowAnalytics();
-
+    private BotsInfo botsInfo = new BotsInfo();
+    private PacketThrottle packetThrottle = new PacketThrottle();
     /** Some configurable property. */
     private String someProperty;
 
@@ -127,21 +128,36 @@ public class AppComponent implements SomeInterface {
         public void process(PacketContext context) {
             InboundPacket iPacket = context.inPacket();
             Ethernet ethPacket = iPacket.parsed();
+            boolean reject = false;
             if(ethPacket.getEtherType() == Ethernet.TYPE_IPV4)  {
                 IPv4 ipPacket = (IPv4) ethPacket.getPayload();
                 // now current point of interest is just TCP packets
                 if(ipPacket.getProtocol() == IPv4.PROTOCOL_TCP) {
                     TCP tcpPacket = (TCP)ipPacket.getPayload();
-                   FlowAnalytics.PacketFlowRate fr = analytics.flow(ipPacket.getSourceAddress(), ipPacket.getDestinationAddress(), tcpPacket.getSourcePort(), tcpPacket.getDestinationPort());
-                    System.out.println("("+IPv4.fromIPv4Address(ipPacket.getSourceAddress()) +","+tcpPacket.getSourcePort()+ ") -> (" + IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+","+tcpPacket.getDestinationPort()+")"+" id::"+(ipPacket.getSourceAddress()+ipPacket.getDestinationAddress()+tcpPacket.getSourcePort()+tcpPacket.getDestinationPort()) );
-                    fr.log();
+//                   FlowAnalytics.PacketFlowRate fr = analytics.flow(ipPacket.getSourceAddress(), ipPacket.getDestinationAddress(), tcpPacket.getSourcePort(), tcpPacket.getDestinationPort());
+//                    System.out.println("("+IPv4.fromIPv4Address(ipPacket.getSourceAddress())+"="+ ipPacket.getSourceAddress()+","+tcpPacket.getSourcePort()+ ") -> (" + IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+","+tcpPacket.getDestinationPort()+")" );
+//                    fr.log();
+
+                   BotsInfo.Info info = botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort());
+                   if(info != null && info.isNew == false) {
+                        // means the new packet will be allowed first
+                       if(packetThrottle.throttle(Integer.valueOf(info.botIP+info.botPort)) == true){
+//                            this means reject the packet
+                           reject = true;
+                           System.out.println("Throttling packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
+                       } else {
+                           System.out.println("Allowing packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
+                           reject = false;
+                       }
+                   }
                 }
             }
 
-
+        if(!reject) {
 //            log.info("(received from) "+context.inPacket().receivedFrom().toString());
             initMacTable(context.inPacket().receivedFrom());
             actLikeSwitch(context);
+        }
         }
 
         public void actLikeHub(PacketContext context){

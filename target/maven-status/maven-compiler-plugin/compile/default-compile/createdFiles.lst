@@ -1,6 +1,10 @@
 org/decps/app/AppComponent.class
 org/decps/app/AppComponent$1.class
+org/decps/app/PacketThrottle$ThrottleInfo.class
 org/decps/app/AppComponent$SwitchPacketProcessor.class
 org/decps/app/FlowAnalytics$PacketFlowRate.class
 org/decps/app/SomeInterface.class
+org/decps/app/BotsInfo$Info.class
+org/decps/app/PacketThrottle.class
 org/decps/app/FlowAnalytics.class
+org/decps/app/BotsInfo.class
