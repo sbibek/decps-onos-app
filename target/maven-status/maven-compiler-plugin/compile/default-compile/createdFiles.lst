@@ -5,6 +5,6 @@ org/decps/app/AppComponent$SwitchPacketProcessor.class
 org/decps/app/FlowAnalytics$PacketFlowRate.class
 org/decps/app/SomeInterface.class
 org/decps/app/BotsInfo$Info.class
-org/decps/app/PacketThrottle.class
-org/decps/app/FlowAnalytics.class
 org/decps/app/BotsInfo.class
+org/decps/app/FlowAnalytics.class
+org/decps/app/PacketThrottle.class

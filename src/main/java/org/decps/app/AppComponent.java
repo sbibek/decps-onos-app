@@ -41,10 +41,7 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-import java.util.Dictionary;
-import java.util.Properties;
-import java.util.Optional;
+import java.util.*;
 
 import static org.onlab.util.Tools.get;
 
@@ -134,22 +131,38 @@ public class AppComponent implements SomeInterface {
                 // now current point of interest is just TCP packets
                 if(ipPacket.getProtocol() == IPv4.PROTOCOL_TCP) {
                     TCP tcpPacket = (TCP)ipPacket.getPayload();
+
+//                    tcpPacket.getFlags()
+                    if(ipPacket.getSourceAddress() == -2141209023 && tcpPacket.getSourcePort() == 2400) {
+                        // now lets filter to the flags
+                        // we just want the data related to PSH ACK as it contains the payload
+                        if(tcpPacket.getFlags() == 24) {
+                            // means there is a attack payload from CNC to bots
+
+                            Random rand = new Random();
+                            int n = rand.nextInt(99999);
+                            reject = (n%2 == 0);
+
+                            System.out.println("[cnc->bot] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
+
+                        }
+                    }
 //                   FlowAnalytics.PacketFlowRate fr = analytics.flow(ipPacket.getSourceAddress(), ipPacket.getDestinationAddress(), tcpPacket.getSourcePort(), tcpPacket.getDestinationPort());
 //                    System.out.println("("+IPv4.fromIPv4Address(ipPacket.getSourceAddress())+"="+ ipPacket.getSourceAddress()+","+tcpPacket.getSourcePort()+ ") -> (" + IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+","+tcpPacket.getDestinationPort()+")" );
 //                    fr.log();
-
-                   BotsInfo.Info info = botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort());
-                   if(info != null && info.isNew == false) {
-                        // means the new packet will be allowed first
-                       if(packetThrottle.throttle(Integer.valueOf(info.botIP+info.botPort)) == true){
-//                            this means reject the packet
-                           reject = true;
-                           System.out.println("Throttling packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
-                       } else {
-                           System.out.println("Allowing packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
-                           reject = false;
-                       }
-                   }
+//
+//                   BotsInfo.Info info = botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort());
+//                   if(info != null && info.isNew == false) {
+//                        // means the new packet will be allowed first
+//                       if(packetThrottle.throttle(Integer.valueOf(info.botIP+info.botPort)) == true){
+////                            this means reject the packet
+//                           reject = true;
+//                           System.out.println("Throttling packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
+//                       } else {
+//                           System.out.println("Allowing packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
+//                           reject = false;
+//                       }
+//                   }
                 }
             }
 
