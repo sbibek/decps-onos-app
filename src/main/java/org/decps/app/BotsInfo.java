@@ -18,11 +18,13 @@ public class BotsInfo {
     Map<String, Info> registeredBots = Maps.newConcurrentMap();
 
     Map<Integer, List<Info>> groups = Maps.newConcurrentMap();
+    Map<Integer, Integer> status = Maps.newConcurrentMap();
 
     private void createGroups() {
         Integer groupId = 0;
        List<Info> bi = new ArrayList<>();
         for(int i=0;i<bots.size();i++) {
+            bots.get(i).group = groupId;
             bi.add(bots.get(i));
             if((i+1)%memberCount == 0 || i == bots.size()-1) {
                 groups.put(groupId, bi);
@@ -31,7 +33,20 @@ public class BotsInfo {
             }
         }
 
+        // status to track the packet status in each group
+        for(int i=0;i<groups.size();i++) {
+            status.put(i, 0);
+        }
+
         System.out.println("[BotsInfo] groups created #"+groups.size());
+    }
+
+    public void groupCheck(int botIp, int botPort, MacAddress botMac ){
+        Info i = registeredBots.get(botMac.toString()+botPort);
+        if(i != null) {
+            status.put(i.group, status.get(i.group)+1);
+            System.out.println(i.group+">"+status.get(i.group));
+        }
     }
 
     private void cleanup() {
@@ -91,6 +106,7 @@ public class BotsInfo {
     }
 
     public static class Info {
+        public int group = -1;
         public long lastSeen = 0;
         public int processed = 0;
         public String mac;

@@ -173,7 +173,7 @@ public class AppComponent implements SomeInterface {
                                 reject = (weightedList.get(n) == 0);
                             } else if(EXPERIMENT == EXP_GROUP) {
                                 // this is hugely complex as we need to set the groups
-
+                                botsInfo.groupCheck(ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort(), ethPacket.getDestinationMAC());
                             }
                             System.out.println("[cnc->bot #"+EXPERIMENT+"] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
 
