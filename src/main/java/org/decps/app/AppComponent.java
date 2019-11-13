@@ -66,6 +66,15 @@ public class AppComponent implements SomeInterface {
     /** Some configurable property. */
     private String someProperty;
 
+    private Integer EXP_RANDOM = 0;
+    private Integer EXP_WEIGHTED = 1;
+    private Integer EXP_GROUP = 2;
+
+
+    private List<Integer> weightedList = new ArrayList<>();
+
+    private Integer EXPERIMENT = EXP_WEIGHTED;
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected ComponentConfigService cfgService;
 
@@ -96,6 +105,20 @@ public class AppComponent implements SomeInterface {
         // now lets restrict packet to ipv4 and arp
         packetService.requestPackets(DefaultTrafficSelector.builder().matchEthType(Ethernet.TYPE_IPV4).build(), PacketPriority.REACTIVE, appId, Optional.empty());
         packetService.requestPackets(DefaultTrafficSelector.builder().matchEthType(Ethernet.TYPE_ARP).build(), PacketPriority.REACTIVE, appId, Optional.empty());
+
+
+        // initialize the weighted list
+        // current, 1:40%, 0: 60%
+        weightedList.add(1);
+        weightedList.add(1);
+        weightedList.add(1);
+        weightedList.add(1);
+        weightedList.add(0);
+        weightedList.add(0);
+        weightedList.add(0);
+        weightedList.add(0);
+        weightedList.add(0);
+        weightedList.add(0);
     }
 
     @Deactivate
@@ -138,12 +161,17 @@ public class AppComponent implements SomeInterface {
                         // we just want the data related to PSH ACK as it contains the payload
                         if(tcpPacket.getFlags() == 24) {
                             // means there is a attack payload from CNC to bots
+                            if(EXPERIMENT == EXP_RANDOM) {
+                                Random rand = new Random();
+                                int n = rand.nextInt(99999);
+                                reject = (n % 2 == 0);
+                            } else if( EXPERIMENT == EXP_WEIGHTED) {
+                                Random rand = new Random();
+                                int n = rand.nextInt(9);
+                                reject = (weightedList.get(n) == 0);
+                            }
 
-                            Random rand = new Random();
-                            int n = rand.nextInt(99999);
-                            reject = (n%2 == 0);
-
-                            System.out.println("[cnc->bot] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
+                            System.out.println("[cnc->bot #"+EXPERIMENT+"] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
 
                         }
                     }
