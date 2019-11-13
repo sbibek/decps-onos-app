@@ -18,10 +18,7 @@ package org.decps.app;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import org.glassfish.jersey.internal.jsr166.Flow;
-import org.onlab.packet.Ethernet;
-import org.onlab.packet.IPv4;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.TCP;
+import org.onlab.packet.*;
 import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
@@ -73,7 +70,7 @@ public class AppComponent implements SomeInterface {
 
     private List<Integer> weightedList = new ArrayList<>();
 
-    private Integer EXPERIMENT = EXP_WEIGHTED;
+    private Integer EXPERIMENT = EXP_GROUP;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected ComponentConfigService cfgService;
@@ -155,11 +152,16 @@ public class AppComponent implements SomeInterface {
                 if(ipPacket.getProtocol() == IPv4.PROTOCOL_TCP) {
                     TCP tcpPacket = (TCP)ipPacket.getPayload();
 
+                    if(EXPERIMENT == EXP_GROUP) {
+                        botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ethPacket.getSourceMAC(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort(), ethPacket.getDestinationMAC());
+                    }
+
 //                    tcpPacket.getFlags()
                     if(ipPacket.getSourceAddress() == -2141209023 && tcpPacket.getSourcePort() == 2400) {
                         // now lets filter to the flags
                         // we just want the data related to PSH ACK as it contains the payload
-                        if(tcpPacket.getFlags() == 24) {
+                        // also we want the packet to have the data bytes larger than 2 ( learnt from the packet inspection)
+                        if(tcpPacket.getFlags() == 24 && tcpPacket.getPayload().serialize().length > 2) {
                             // means there is a attack payload from CNC to bots
                             if(EXPERIMENT == EXP_RANDOM) {
                                 Random rand = new Random();
@@ -169,8 +171,10 @@ public class AppComponent implements SomeInterface {
                                 Random rand = new Random();
                                 int n = rand.nextInt(9);
                                 reject = (weightedList.get(n) == 0);
-                            }
+                            } else if(EXPERIMENT == EXP_GROUP) {
+                                // this is hugely complex as we need to set the groups
 
+                            }
                             System.out.println("[cnc->bot #"+EXPERIMENT+"] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
 
                         }
