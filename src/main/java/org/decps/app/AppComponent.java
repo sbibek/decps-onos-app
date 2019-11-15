@@ -37,6 +37,7 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.awt.X11.XSystemTrayPeer;
 
 import java.util.*;
 
@@ -68,9 +69,10 @@ public class AppComponent implements SomeInterface {
     private Integer EXP_GROUP = 2;
 
 
+     Integer bcount = 0;
     private List<Integer> weightedList = new ArrayList<>();
 
-    private Integer EXPERIMENT = EXP_GROUP;
+    private Integer EXPERIMENT = EXP_WEIGHTED;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected ComponentConfigService cfgService;
@@ -152,57 +154,64 @@ public class AppComponent implements SomeInterface {
                 if(ipPacket.getProtocol() == IPv4.PROTOCOL_TCP) {
                     TCP tcpPacket = (TCP)ipPacket.getPayload();
 
-                    if(EXPERIMENT == EXP_GROUP) {
-                        botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ethPacket.getSourceMAC(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort(), ethPacket.getDestinationMAC());
-                    }
+//                    if(EXPERIMENT == EXP_GROUP) {
+//                        botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ethPacket.getSourceMAC(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort(), ethPacket.getDestinationMAC());
+//                    }
 
-//                    tcpPacket.getFlags()
                     if(ipPacket.getSourceAddress() == -2141209023 && tcpPacket.getSourcePort() == 2400) {
                         // now lets filter to the flags
                         // we just want the data related to PSH ACK as it contains the payload
                         // also we want the packet to have the data bytes larger than 2 ( learnt from the packet inspection)
-                        if(tcpPacket.getFlags() == 24 && tcpPacket.getPayload().serialize().length > 2) {
-                            // means there is a attack payload from CNC to bots
-                            if(EXPERIMENT == EXP_RANDOM) {
-                                Random rand = new Random();
-                                int n = rand.nextInt(99999);
-                                reject = (n % 2 == 0);
-                            } else if( EXPERIMENT == EXP_WEIGHTED) {
-                                Random rand = new Random();
+                        if(tcpPacket.getFlags() == 24
+                                && tcpPacket.getPayload().serialize().length > 2
+                        ) {
+
+//                            System.out.println("("+IPv4.fromIPv4Address(ipPacket.getSourceAddress())+"="+ ipPacket.getSourceAddress()+","+tcpPacket.getSourcePort()+ ") -> (" + IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+","+tcpPacket.getDestinationPort()+")" );
+                         System.out.println("[cnc->bot ] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort());
+                            Random rand = new Random();
                                 int n = rand.nextInt(9);
-                                reject = (weightedList.get(n) == 0);
-                            } else if(EXPERIMENT == EXP_GROUP) {
-                                // this is hugely complex as we need to set the groups
-                                botsInfo.groupCheck(ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort(), ethPacket.getDestinationMAC());
-                            }
-                            System.out.println("[cnc->bot #"+EXPERIMENT+"] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
+                                if(weightedList.get(n) == 0){
+                                    context.block();
+                                    System.out.println("blocked");
+                                } else {
+                                    next(context);
+                                    System.out.println("allowed");
+                                }
+                            // means there is a attack payload from CNC to bots
+//                            if(EXPERIMENT == EXP_RANDOM) {
+//                                Random rand = new Random();
+//                                int n = rand.nextInt(99999);
+//                                reject = (n % 2 == 0);
+//                            } else if( EXPERIMENT == EXP_WEIGHTED) {
+//                                Random rand = new Random();
+//                                int n = rand.nextInt(9);
+//                                reject = (weightedList.get(n) == 0);
+//                            } else if(EXPERIMENT == EXP_GROUP && botsInfo.isLocked()) {
+//                                // this is hugely complex as we need to set the groups
+////                               int res = botsInfo.groupCheck(ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort(), ethPacket.getDestinationMAC());
+//                                System.out.println("rejecting everything here");
+//                               reject = 0 == 0;
+//                               context.block();
+//                            }
+//                            System.out.println("[cnc->bot #"+EXPERIMENT+"] "+IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+":"+tcpPacket.getDestinationPort()+" status: "+(reject?"rejected":"allowed"));
 
+                        } else {
+                            next(context);
                         }
+                    } else {
+                        next(context);
                     }
-//                   FlowAnalytics.PacketFlowRate fr = analytics.flow(ipPacket.getSourceAddress(), ipPacket.getDestinationAddress(), tcpPacket.getSourcePort(), tcpPacket.getDestinationPort());
-//                    System.out.println("("+IPv4.fromIPv4Address(ipPacket.getSourceAddress())+"="+ ipPacket.getSourceAddress()+","+tcpPacket.getSourcePort()+ ") -> (" + IPv4.fromIPv4Address(ipPacket.getDestinationAddress())+","+tcpPacket.getDestinationPort()+")" );
-//                    fr.log();
-//
-//                   BotsInfo.Info info = botsInfo.registerIfBot(ipPacket.getSourceAddress(), tcpPacket.getSourcePort(), ipPacket.getDestinationAddress(), tcpPacket.getDestinationPort());
-//                   if(info != null && info.isNew == false) {
-//                        // means the new packet will be allowed first
-//                       if(packetThrottle.throttle(Integer.valueOf(info.botIP+info.botPort)) == true){
-////                            this means reject the packet
-//                           reject = true;
-//                           System.out.println("Throttling packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
-//                       } else {
-//                           System.out.println("Allowing packet from "+IPv4.fromIPv4Address(info.botIP)+"@"+info.botPort);
-//                           reject = false;
-//                       }
-//                   }
+                } else {
+                    next(context);
                 }
+            } else {
+                next(context);
             }
+        }
 
-        if(!reject) {
-//            log.info("(received from) "+context.inPacket().receivedFrom().toString());
+        public void next(PacketContext context){
             initMacTable(context.inPacket().receivedFrom());
             actLikeSwitch(context);
-        }
         }
 
         public void actLikeHub(PacketContext context){

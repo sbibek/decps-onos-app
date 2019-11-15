@@ -1,4 +1,5 @@
 org/decps/app/AppComponent.class
+org/decps/app/BotsInfo$Status.class
 org/decps/app/AppComponent$1.class
 org/decps/app/PacketThrottle$ThrottleInfo.class
 org/decps/app/AppComponent$SwitchPacketProcessor.class
